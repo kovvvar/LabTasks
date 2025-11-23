@@ -1,0 +1,277 @@
+using System;
+
+namespace ComplexMenuApp
+{
+    // Структура для комплексных чисел
+    public struct ComplexNumber
+    {
+        private double realPart;
+        private double imaginaryPart;
+
+        // Конструктор: создание по вещественной и мнимой части
+        public ComplexNumber(double realPart, double imaginaryPart)
+        {
+            this.realPart = realPart;
+            this.imaginaryPart = imaginaryPart;
+        }
+
+        // Возврат вещественной части
+        public double GetRealPart()
+        {
+            return realPart;
+        }
+
+        // Возврат мнимой части
+        public double GetImaginaryPart()
+        {
+            return imaginaryPart;
+        }
+
+        // Сложение (результат в текущий объект)
+        public void Add(ComplexNumber other)
+        {
+            realPart += other.realPart;
+            imaginaryPart += other.imaginaryPart;
+        }
+
+        // Вычитание
+        public void Subtract(ComplexNumber other)
+        {
+            realPart -= other.realPart;
+            imaginaryPart -= other.imaginaryPart;
+        }
+
+        // Умножение
+        public void Multiply(ComplexNumber other)
+        {
+            double newRealPart = realPart * other.realPart - imaginaryPart * other.imaginaryPart;
+            double newImaginaryPart = realPart * other.imaginaryPart + imaginaryPart * other.realPart;
+
+            realPart = newRealPart;
+            imaginaryPart = newImaginaryPart;
+        }
+
+        // Деление
+        public bool Divide(ComplexNumber other)
+        {
+            double denominator = other.realPart * other.realPart + other.imaginaryPart * other.imaginaryPart;
+
+            if (denominator == 0)
+            {
+                return false; // потому что деление на ноль
+            }
+
+            double newRealPart =
+                (realPart * other.realPart + imaginaryPart * other.imaginaryPart) / denominator;
+
+            double newImaginaryPart =
+                (imaginaryPart * other.realPart - realPart * other.imaginaryPart) / denominator;
+
+            realPart = newRealPart;
+            imaginaryPart = newImaginaryPart;
+            return true;
+        }
+
+        // Модуль: sqrt(a^2 + b^2)
+        public double GetModulus()
+        {
+            return Math.Sqrt(realPart * realPart + imaginaryPart * imaginaryPart);
+        }
+
+        // Аргумент: atan2(b, a)
+        public double GetArgument()
+        {
+            return Math.Atan2(imaginaryPart, realPart);
+        }
+
+        // Вывод в строку
+        public override string ToString()
+        {
+            if (imaginaryPart >= 0)
+            {
+                return $"{realPart} + {imaginaryPart}i";
+            }
+            else
+            {
+                return $"{realPart} - {Math.Abs(imaginaryPart)}i";
+            }
+        }
+    }
+
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            ComplexNumber current = new ComplexNumber(0, 0); // исходное число = 0
+            bool hasValue = false; // было ли первое введённое число
+
+            while (true)
+            {
+                ShowMenu(current, hasValue);
+
+                Console.Write("Команда: ");
+                string input = Console.ReadLine();
+
+                if (string.IsNullOrWhiteSpace(input))
+                {
+                    Console.WriteLine("неизвестная команда");
+                    continue;
+                }
+
+                char command = input[0];
+
+                switch (command)
+                {
+                    case 'I':
+                    case 'i':
+                        current = ReadComplexFromUser();
+                        hasValue = true;
+                        Console.WriteLine("Текущее число обновлено: " + current);
+                        break;
+
+                    case '+':
+                        EnsureHasValue(hasValue);
+                        {
+                            ComplexNumber second = ReadComplexFromUser("Введите второе число для сложения:");
+                            current.Add(second);
+                            Console.WriteLine("Результат: " + current);
+                        }
+                        break;
+
+                    case '-':
+                        EnsureHasValue(hasValue);
+                        {
+                            ComplexNumber second = ReadComplexFromUser("Введите второе число для вычитания:");
+                            current.Subtract(second);
+                            Console.WriteLine("Результат: " + current);
+                        }
+                        break;
+
+                    case '*':
+                        EnsureHasValue(hasValue);
+                        {
+                            ComplexNumber second = ReadComplexFromUser("Введите второе число для умножения:");
+                            current.Multiply(second);
+                            Console.WriteLine("Результат: " + current);
+                        }
+                        break;
+
+                    case '/':
+                        EnsureHasValue(hasValue);
+                        {
+                            ComplexNumber second = ReadComplexFromUser("Введите второе число для деления:");
+                            bool ok = current.Divide(second);
+                            if (!ok)
+                            {
+                                Console.WriteLine("Ошибка: деление на 0.");
+                            }
+                            else
+                            {
+                                Console.WriteLine("Результат: " + current);
+                            }
+                        }
+                        break;
+
+                    case 'M':
+                    case 'm':
+                        EnsureHasValue(hasValue);
+                        Console.WriteLine("Модуль = " + current.GetModulus());
+                        break;
+
+                    case 'A':
+                    case 'a':
+                        EnsureHasValue(hasValue);
+                        Console.WriteLine("Аргумент (в радианах) = " + current.GetArgument());
+                        break;
+
+                    case 'R':
+                    case 'r':
+                        EnsureHasValue(hasValue);
+                        Console.WriteLine("Вещественная часть = " + current.GetRealPart());
+                        break;
+
+                    case 'J':
+                    case 'j':
+                        EnsureHasValue(hasValue);
+                        Console.WriteLine("Мнимая часть = " + current.GetImaginaryPart());
+                        break;
+
+                    case 'P':
+                    case 'p':
+                        EnsureHasValue(hasValue);
+                        Console.WriteLine("Текущее число: " + current);
+                        break;
+
+                    case 'Q':
+                    case 'q':
+                        Console.WriteLine("Выход из программы.");
+                        return;
+
+                    default:
+                        Console.WriteLine("неизвестная команда");
+                        break;
+                }
+
+                Console.WriteLine();
+            }
+        }
+
+        static void ShowMenu(ComplexNumber current, bool hasValue)
+        {
+            Console.WriteLine(" МЕНЮ ");
+            Console.WriteLine("I - задать комплексное число");
+            Console.WriteLine("+ - сложение с другим числом");
+            Console.WriteLine("- - вычитание другого числа");
+            Console.WriteLine("* - умножение на другое число");
+            Console.WriteLine("/ - деление на другое число");
+            Console.WriteLine("M - модуль текущего числа");
+            Console.WriteLine("A - аргумент текущего числа");
+            Console.WriteLine("R - вывести вещественную часть");
+            Console.WriteLine("J - вывести мнимую часть");
+            Console.WriteLine("P - показать текущее число");
+            Console.WriteLine("Q - выход");
+            Console.WriteLine("(писать капсом не обязательно)");
+            Console.WriteLine("------------------");
+            Console.WriteLine(hasValue
+                ? "Текущее число = " + current
+                : "Текущее число = 0 (пока не введено)");
+        }
+
+        static ComplexNumber ReadComplexFromUser(string header = "Введите комплексное число:")
+        {
+            Console.WriteLine(header);
+
+            double realPart = ReadDouble("Вещественная часть: ");
+            double imaginaryPart = ReadDouble("Мнимая часть: ");
+
+            return new ComplexNumber(realPart, imaginaryPart);
+        }
+
+        static double ReadDouble(string message)
+        {
+            while (true)
+            {
+                Console.Write(message);
+                string text = Console.ReadLine();
+
+                if (double.TryParse(text, out double value))
+                {
+                    return value;
+                }
+
+                Console.WriteLine("Введите корректное число.");
+            }
+        }
+
+        static void EnsureHasValue(bool hasValue)
+        {
+            if (!hasValue)
+            {
+                // По условию до первого ввода считаем число равным 0,
+                // но операции всё равно можно выполнять.
+                // Поэтому здесь просто ничего не делаем.
+                // Метод оставлен для читаемости.
+            }
+        }
+    }
+}
