@@ -1,0 +1,238 @@
+using System;
+using System.Collections.Generic;
+
+namespace HeapApp
+{
+    public class Heap<T>
+    {
+        private List<T> items;
+        private IComparer<T> comparer;
+        private bool isMinHeap;
+
+        private const int DEFAULT_CAPACITY = 16;
+
+        // Пустая куча
+        public Heap(bool isMinHeap = false, IComparer<T> comparer = null)
+        {
+            items = new List<T>(DEFAULT_CAPACITY);
+            this.isMinHeap = isMinHeap;
+            this.comparer = comparer ?? Comparer<T>.Default;
+        }
+
+        // Конструктор из массива
+        public Heap(T[] array, bool isMinHeap = false, IComparer<T> comparer = null)
+        {
+            if (array == null)
+            {
+                throw new ArgumentNullException(nameof(array), "Массив не должен быть null.");
+            }
+
+            items = new List<T>(array);
+            this.isMinHeap = isMinHeap;
+            this.comparer = comparer ?? Comparer<T>.Default;
+
+            BuildHeap();
+        }
+
+        // Количество элементов
+        public int Count
+        {
+            get { return items.Count; }
+        }
+
+        // 2) Найти максимум/минимум без удалнеия
+        public T Peek()
+        {
+            if (items.Count == 0)
+            {
+                throw new InvalidOperationException("Куча пуста. Нельзя получить корень.");
+            }
+
+            return items[0];
+        }
+
+        // 3) Удалить максимум/минимум
+        public T ExtractRoot()
+        {
+            if (items.Count == 0)
+            {
+                throw new InvalidOperationException("Куча пуста. Нельзя удалить корень.");
+            }
+
+            T root = items[0];
+
+            int lastIndex = items.Count - 1;
+            items[0] = items[lastIndex];
+            items.RemoveAt(lastIndex);
+
+            if (items.Count > 0)
+            {
+                HeapifyDown(0);
+            }
+
+            return root;
+        }
+
+        // 4) Изменить ключ по индексу и востановить свойство кучи
+        public void ChangeKey(int index, T newValue)
+        {
+            if (index < 0 || index >= items.Count)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index), "Индекс вне диапазона кучи.");
+            }
+
+            T oldValue = items[index];
+            items[index] = newValue;
+
+            // Сравним новое и старое значение, чтобы понять куда просеивать
+            int cmp = Compare(newValue, oldValue);
+
+            if (cmp > 0)
+            {
+                // Стало "лучше" для корня => вверх
+                HeapifyUp(index);
+            }
+            else if (cmp < 0)
+            {
+                // Стало "хуже" => вниз
+                HeapifyDown(index);
+            }
+            // если cmp == 0, ничего делать не нужно
+        }
+
+        // 5) Добавить элемент
+        public void Add(T value)
+        {
+            items.Add(value);
+            HeapifyUp(items.Count - 1);
+        }
+
+        // 6) Слияние двух куч (возвращает новую)
+        public Heap<T> Merge(Heap<T> other)
+        {
+            if (other == null)
+            {
+                throw new ArgumentNullException(nameof(other), "Другая куча не должна быть null.");
+            }
+
+            if (this.isMinHeap != other.isMinHeap)
+            {
+                throw new InvalidOperationException("Нельзя сливать min-кучу и max-кучу.");
+            }
+
+            // Собираем все элементы
+            T[] mergedArray = new T[this.Count + other.Count];
+            this.items.CopyTo(mergedArray, 0);
+            other.items.CopyTo(mergedArray, this.Count);
+
+            // Создаём новую кучу из массива
+            return new Heap<T>(mergedArray, this.isMinHeap, this.comparer);
+        }
+
+        // = Внутренние методы =
+
+        // Построение кучи из массива
+        private void BuildHeap()
+        {
+            // последний родитель = (n/2 - 1)
+            for (int i = items.Count / 2 - 1; i >= 0; i--)
+            {
+                HeapifyDown(i);
+            }
+        }
+
+        private void HeapifyUp(int index)
+        {
+            while (index > 0)
+            {
+                int parentIndex = (index - 1) / 2;
+
+                if (Compare(items[index], items[parentIndex]) <= 0)
+                {
+                    break;
+                }
+
+                Swap(index, parentIndex);
+                index = parentIndex;
+            }
+        }
+
+        private void HeapifyDown(int index)
+        {
+            while (true)
+            {
+                int leftIndex = index * 2 + 1;
+                int rightIndex = index * 2 + 2;
+                int bestIndex = index;
+
+                if (leftIndex < items.Count && Compare(items[leftIndex], items[bestIndex]) > 0)
+                {
+                    bestIndex = leftIndex;
+                }
+
+                if (rightIndex < items.Count && Compare(items[rightIndex], items[bestIndex]) > 0)
+                {
+                    bestIndex = rightIndex;
+                }
+
+                if (bestIndex == index)
+                {
+                    break;
+                }
+
+                Swap(index, bestIndex);
+                index = bestIndex;
+            }
+        }
+
+        private int Compare(T a, T b)
+        {
+            int result = comparer.Compare(a, b);
+
+            // для min-кучи меняем знак сравнения
+            if (isMinHeap)
+            {
+                result = -result;
+            }
+
+            return result;
+        }
+
+        private void Swap(int firstIndex, int secondIndex)
+        {
+            T temp = items[firstIndex];
+            items[firstIndex] = items[secondIndex];
+            items[secondIndex] = temp;
+        }
+    }
+
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            // Пример max-кучи
+            int[] numbers = { 5, 1, 8, 3, 2 };
+            Heap<int> heap = new Heap<int>(numbers);
+
+            Console.WriteLine("Корень (максимум): " + heap.Peek()); // 8
+
+            heap.Add(10);
+            Console.WriteLine("После добавления 10, корень: " + heap.Peek()); // 10
+
+            int maxValue = heap.ExtractRoot();
+            Console.WriteLine("Удалили корень: " + maxValue); // 10
+            Console.WriteLine("Новый корень: " + heap.Peek()); // 8
+
+            heap.ChangeKey(0, 100); // изменяем корень
+            Console.WriteLine("После ChangeKey, корень: " + heap.Peek()); // 100
+
+            // Пример слияния
+            Heap<int> heap2 = new Heap<int>(new int[] { 7, 6, 9 });
+            Heap<int> mergedHeap = heap.Merge(heap2);
+
+            Console.WriteLine("Слитая куча, корень: " + mergedHeap.Peek()); // 100 ну или 9/100 в зависимости от элементов
+
+            Console.ReadLine();
+        }
+    }
+}

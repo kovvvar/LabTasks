@@ -1,0 +1,334 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+
+// очередь с перпоритетами с прошлого задания
+public class MyPriorityQueue<T>
+{
+    private T[] queue;                    // массив для элементов
+    private int size;                     // количество элементов
+    private IComparer<T> comparator;      // компаратор для сравнения
+
+    private const int DEFAULT_CAPACITY = 11;
+
+    // Пустая очередь, начальная ёмкость 11
+    public MyPriorityQueue()
+    {
+        queue = new T[DEFAULT_CAPACITY];
+        size = 0;
+        comparator = Comparer<T>.Default;
+    }
+
+    // Конструктор из массива
+    public MyPriorityQueue(T[] a)
+    {
+        if (a == null)
+            throw new ArgumentNullException(nameof(a), "Массив не должен быть null.");
+
+        queue = new T[Math.Max(DEFAULT_CAPACITY, a.Length)];
+        size = a.Length;
+        comparator = Comparer<T>.Default;
+
+        Array.Copy(a, queue, size);
+        BuildHeap();
+    }
+
+    // Конструктор с указанной ёмкостью
+    public MyPriorityQueue(int initialCapacity)
+    {
+        if (initialCapacity <= 0)
+            throw new ArgumentException("Начальная ёмкость должна быть больше нуля.");
+
+        queue = new T[initialCapacity];
+        size = 0;
+        comparator = Comparer<T>.Default;
+    }
+
+    // Конструктор с ёмкостью и компаратором
+    public MyPriorityQueue(int initialCapacity, IComparer<T> customComparator)
+    {
+        if (initialCapacity <= 0)
+            throw new ArgumentException("Начальная ёмкость должна быть больше нуля.");
+
+        if (customComparator == null)
+            throw new ArgumentNullException(nameof(customComparator), "Компаратор не должен быть null.");
+
+        queue = new T[initialCapacity];
+        size = 0;
+        comparator = customComparator;
+    }
+
+    // Конструктор копирования
+    public MyPriorityQueue(MyPriorityQueue<T> c)
+    {
+        if (c == null)
+            throw new ArgumentNullException(nameof(c), "Очередь не должна быть null.");
+
+        queue = new T[Math.Max(DEFAULT_CAPACITY, c.size)];
+        size = c.size;
+        comparator = c.comparator;
+
+        Array.Copy(c.queue, queue, size);
+        BuildHeap();
+    }
+
+    // перестроение массива в min-кучу
+    private void BuildHeap()
+    {
+        for (int i = size / 2 - 1; i >= 0; i--)
+            HeapifyDown(i);
+    }
+
+    // подъем элемента вверх
+    private void HeapifyUp(int index)
+    {
+        while (index > 0)
+        {
+            int parent = (index - 1) / 2;
+
+            if (comparator.Compare(queue[index], queue[parent]) >= 0)
+                break;
+
+            Swap(index, parent);
+            index = parent;
+        }
+    }
+
+    // опускание элемента вниз
+    private void HeapifyDown(int index)
+    {
+        while (true)
+        {
+            int left = index * 2 + 1;
+            int right = index * 2 + 2;
+            int smallest = index;
+
+            if (left < size && comparator.Compare(queue[left], queue[smallest]) < 0)
+                smallest = left;
+
+            if (right < size && comparator.Compare(queue[right], queue[smallest]) < 0)
+                smallest = right;
+
+            if (smallest == index)
+                break;
+
+            Swap(index, smallest);
+            index = smallest;
+        }
+    }
+
+    // обмен двух элементов
+    private void Swap(int i, int j)
+    {
+        T temp = queue[i];
+        queue[i] = queue[j];
+        queue[j] = temp;
+    }
+
+    // увеличение ёмкости при переполнении
+    private void EnsureCapacity()
+    {
+        if (size < queue.Length) return;
+
+        int newCapacity =
+            queue.Length < 64 ? queue.Length + 2 : queue.Length + queue.Length / 2;
+
+        T[] newArray = new T[newCapacity];
+        Array.Copy(queue, newArray, size);
+        queue = newArray;
+    }
+
+    // добавить элемент
+    public void Add(T e)
+    {
+        if (e == null)
+            throw new ArgumentNullException(nameof(e));
+
+        EnsureCapacity();
+        queue[size] = e;
+        size++;
+
+        HeapifyUp(size - 1);
+    }
+
+    // пуста ли очередь
+    public bool IsEmpty()
+    {
+        return size == 0;
+    }
+
+    // посмотреть корень
+    public T Peek()
+    {
+        if (size == 0) return default;
+        return queue[0];
+    }
+
+    // удалить и вернуть корень
+    public T Poll()
+    {
+        if (size == 0) return default;
+
+        T result = queue[0];
+        queue[0] = queue[size - 1];
+        size--;
+
+        HeapifyDown(0);
+
+        return result;
+    }
+
+    // размер
+    public int Size()
+    {
+        return size;
+    }
+}
+
+// Класс заявка
+public class Request
+{
+    public int Id { get; private set; }              // номер заявки
+    public int Priority { get; private set; }        // приоритет (1..5)
+    public int ArrivalStep { get; private set; }     // шаг поступления
+
+    public Request(int id, int priority, int arrivalStep)
+    {
+        Id = id;
+        Priority = priority;
+        ArrivalStep = arrivalStep;
+    }
+
+    public override string ToString()
+    {
+        return $"Id={Id}, Priority={Priority}, ArrivalStep={ArrivalStep}"; // строковая интерполяция (удобный способ собрать строку из текста + переменных.)
+    }
+}
+
+// Компаратор для max-приоритета
+// MyPriorityQueue — min-heap, поэтому более высокий приоритет считаем меньшим, чтобы он всплывал вверх.
+
+public class RequestComparer : IComparer<Request>
+{
+    public int Compare(Request x, Request y)
+    {
+        if (x == null && y == null) return 0;
+        if (x == null) return 1;
+        if (y == null) return -1;
+
+        // 1) По приоритету: больше приоритет -> раньше в очереди
+        int byPriority = y.Priority.CompareTo(x.Priority); // обратный порядок
+        if (byPriority != 0) return byPriority;
+
+        // 2) Если приоритет одинаковый: раньше пришёл -> раньше удаляем
+        int byArrival = x.ArrivalStep.CompareTo(y.ArrivalStep);
+        if (byArrival != 0) return byArrival;
+
+        // 3) Если и шаг одинаковый: меньший id раньше
+        return x.Id.CompareTo(y.Id);
+    }
+}
+class Program
+{
+    static void Main(string[] args)
+    {
+        int stepsCount = ReadStepsCount();
+
+        Random random = new Random();
+        int nextRequestId = 1;
+
+        // Очередь с приоритетами (max по Priority через компаратор)
+        MyPriorityQueue<Request> priorityQueue =
+            new MyPriorityQueue<Request>(11, new RequestComparer());
+
+        // для логирования
+        using StreamWriter logWriter = new StreamWriter("log.txt", false);
+
+        // чтобы запомнить заявку с максимальным ожиданием
+        Request maxWaitingRequest = null;
+        int maxWaitingTime = -1;
+
+        int currentStep = 1;
+
+        // Шаги 1..N: генерируем + удаляем
+        for (; currentStep <= stepsCount; currentStep++)
+        {
+            int addCount = random.Next(1, 11); // от 1 до 10
+
+            for (int i = 0; i < addCount; i++)
+            {
+                int priority = random.Next(1, 6); // 1..5
+
+                Request newRequest = new Request(nextRequestId, priority, currentStep);
+                nextRequestId++;
+
+                priorityQueue.Add(newRequest);
+
+                logWriter.WriteLine($"ADD {newRequest.Id} {newRequest.Priority} {newRequest.ArrivalStep}");
+            }
+
+            // после добавления удаляем заявку с НАИБОЛЬШИМ приоритетом
+            if (!priorityQueue.IsEmpty())
+            {
+                Request removed = priorityQueue.Poll();
+                logWriter.WriteLine($"REMOVE {removed.Id} {removed.Priority} {currentStep}");
+
+                int waitingTime = currentStep - removed.ArrivalStep;
+                if (waitingTime > maxWaitingTime)
+                {
+                    maxWaitingTime = waitingTime;
+                    maxWaitingRequest = removed;
+                }
+            }
+        }
+
+        // Дальше: только удаляем, пока очередь не пустая
+        while (!priorityQueue.IsEmpty())
+        {
+            Request removed = priorityQueue.Poll();
+            logWriter.WriteLine($"REMOVE {removed.Id} {removed.Priority} {currentStep}");
+
+            int waitingTime = currentStep - removed.ArrivalStep;
+            if (waitingTime > maxWaitingTime)
+            {
+                maxWaitingTime = waitingTime;
+                maxWaitingRequest = removed;
+            }
+
+            currentStep++;
+        }
+
+        // вывод результата
+        Console.WriteLine("Максимальное время ожидания: " + maxWaitingTime);
+
+        if (maxWaitingRequest != null)
+        {
+            Console.WriteLine("Заявка, которая ждала дольше всех:");
+            Console.WriteLine("Номер заявки: " + maxWaitingRequest.Id);
+            Console.WriteLine("Приоритет: " + maxWaitingRequest.Priority);
+            Console.WriteLine("Шаг поступления: " + maxWaitingRequest.ArrivalStep);
+            Console.WriteLine("Шаг удаления: " + (maxWaitingRequest.ArrivalStep + maxWaitingTime));
+        }
+        else
+        {
+            Console.WriteLine("Заявок не было.");
+        }
+
+        Console.WriteLine("Лог записан в файл log.txt");
+    }
+
+    // чтение N с клавиатуры
+    static int ReadStepsCount()
+    {
+        while (true)
+        {
+            Console.Write("Введите N (количество шагов добавления заявок): ");
+            string text = Console.ReadLine();
+
+            if (int.TryParse(text, out int n) && n > 0)
+                return n;
+
+            Console.WriteLine("Введите корректное положительное число.");
+        }
+    }
+}

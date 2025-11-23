@@ -1,0 +1,362 @@
+using System;
+using System.Collections.Generic;
+
+public class MyPriorityQueue<T>
+{
+    private T[] queue;                    // массив для элементов в очереди
+    private int size;                     // текущее количество элементов
+    private IComparer<T> comparator;      // компаратор для сравнения элементов
+
+    private const int DEFAULT_CAPACITY = 11;
+
+    // Конструкторы
+
+    // 1) Пустая очередь с приоритетами с начальной ёмкостью 11
+    public MyPriorityQueue()
+    {
+        queue = new T[DEFAULT_CAPACITY];
+        size = 0;
+        comparator = Comparer<T>.Default; // используется естественный порядок сортировки
+    }
+
+    // 2) Создание очереди из массива элементов
+    public MyPriorityQueue(T[] a)
+    {
+        if (a == null)
+            throw new ArgumentNullException(nameof(a), "Массив не должен быть null.");
+
+        queue = new T[Math.Max(DEFAULT_CAPACITY, a.Length)];
+        size = a.Length;
+        comparator = Comparer<T>.Default;
+
+        Array.Copy(a, queue, size);
+        BuildHeap(); // формируем min-кучу
+    }
+
+    // 3) Создание очереди с указанной ёмкостью
+    public MyPriorityQueue(int initialCapacity)
+    {
+        if (initialCapacity <= 0)
+            throw new ArgumentException("Начальная ёмкость должна быть больше нуля.");
+
+        queue = new T[initialCapacity];
+        size = 0;
+        comparator = Comparer<T>.Default;
+    }
+
+    // 4) Создание очереди с указанной ёмкостью и компаратором
+    public MyPriorityQueue(int initialCapacity, IComparer<T> customComparator)
+    {
+        if (initialCapacity <= 0)
+            throw new ArgumentException("Начальная ёмкость должна быть больше нуля.");
+
+        if (customComparator == null)
+            throw new ArgumentNullException(nameof(customComparator), "Компаратор не должен быть null.");
+
+        queue = new T[initialCapacity];
+        size = 0;
+        comparator = customComparator;
+    }
+
+    // 5) Конструктор копирования — создаёт новую очередь на основе существующей
+    public MyPriorityQueue(MyPriorityQueue<T> c)
+    {
+        if (c == null)
+            throw new ArgumentNullException(nameof(c), "Очередь не должна быть null.");
+
+        queue = new T[Math.Max(DEFAULT_CAPACITY, c.size)];
+        size = c.size;
+        comparator = c.comparator;
+
+        Array.Copy(c.queue, queue, size);
+        BuildHeap(); // перестраиваем кучу
+    }
+
+    // Вспомогательные методы кучи
+
+    // для перестроения массива в корректную min-кучу
+    private void BuildHeap()
+    {
+        for (int i = size / 2 - 1; i >= 0; i--)
+        {
+            HeapifyDown(i);
+        }
+    }
+
+    // для подъёма элемента вверх по куче
+    private void HeapifyUp(int index)
+    {
+        while (index > 0)
+        {
+            int parent = (index - 1) / 2;
+
+            if (comparator.Compare(queue[index], queue[parent]) >= 0)
+                break;
+
+            Swap(index, parent);
+            index = parent;
+        }
+    }
+
+    // для опускания элемента вниз по куче
+    private void HeapifyDown(int index)
+    {
+        while (true)
+        {
+            int left = index * 2 + 1;
+            int right = index * 2 + 2;
+            int smallest = index;
+
+            if (left < size && comparator.Compare(queue[left], queue[smallest]) < 0)
+                smallest = left;
+
+            if (right < size && comparator.Compare(queue[right], queue[smallest]) < 0)
+                smallest = right;
+
+            if (smallest == index)
+                break;
+
+            Swap(index, smallest);
+            index = smallest;
+        }
+    }
+
+    // для обмена двух элементов местами
+    private void Swap(int i, int j)
+    {
+        T temp = queue[i];
+        queue[i] = queue[j];
+        queue[j] = temp;
+    }
+
+    // для увеличения ёмкости массива при переполнении
+    private void EnsureCapacity()
+    {
+        if (size < queue.Length) return;
+
+        int newCapacity =
+            queue.Length < 64 ? queue.Length + 2 : queue.Length + queue.Length / 2;
+
+        T[] newArray = new T[newCapacity];
+        Array.Copy(queue, newArray, size);
+        queue = newArray;
+    }
+
+    // Основыне фукнции
+
+    // для добавления элемента в очередь с приоритетами
+    public void Add(T e)
+    {
+        if (e == null)
+            throw new ArgumentNullException(nameof(e));
+
+        EnsureCapacity();
+        queue[size] = e;
+        size++;
+
+        HeapifyUp(size - 1);
+    }
+
+    // для добавления всех элементов из массива
+    public void AddAll(T[] a)
+    {
+        if (a == null) throw new ArgumentNullException(nameof(a));
+
+        foreach (T item in a)
+            Add(item);
+    }
+
+    // для очистки очереди (удаления всех элементов)
+    public void Clear()
+    {
+        size = 0;
+    }
+
+    // для проверки, содержится ли объект в очереди
+    public bool Contains(object o)
+    {
+        if (o == null) return false;
+
+        for (int i = 0; i < size; i++)
+        {
+            if (queue[i].Equals(o)) return true;
+        }
+
+        return false;
+    }
+
+    // для проверки, содержатся ли ВСЕ указанные объекты в очереди
+    public bool ContainsAll(T[] a)
+    {
+        if (a == null) throw new ArgumentNullException(nameof(a));
+
+        foreach (T item in a)
+        {
+            if (!Contains(item)) return false;
+        }
+
+        return true;
+    }
+
+    // для проверки, пуста ли очередь
+    public bool IsEmpty()
+    {
+        return size == 0;
+    }
+
+    // для удаления одного указанного объекта из очереди
+    public bool Remove(object o)
+    {
+        if (o == null) return false;
+
+        for (int i = 0; i < size; i++)
+        {
+            if (queue[i].Equals(o))
+            {
+                queue[i] = queue[size - 1];  // заменяем последним элементом
+                size--;
+                HeapifyDown(i);             // восстанавливаем кучу
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // для удаления всех указанных элементов из очереди
+    public bool RemoveAll(T[] a)
+    {
+        if (a == null) throw new ArgumentNullException(nameof(a));
+
+        bool removed = false;
+
+        foreach (T item in a)
+        {
+            while (Remove(item))
+                removed = true;
+        }
+
+        return removed;
+    }
+
+    // для оставления в очереди ТОЛЬКО элементов из массива a
+    public bool RetainAll(T[] a)
+    {
+        if (a == null) throw new ArgumentNullException(nameof(a));
+
+        bool changed = false;
+
+        for (int i = 0; i < size; i++)
+        {
+            if (!ArrayContains(a, queue[i]))
+            {
+                Remove(queue[i]);
+                i--;
+                changed = true;
+            }
+        }
+
+        return changed;
+    }
+
+    // для проверки — содержится ли элемент в массиве
+    private bool ArrayContains(T[] array, T value)
+    {
+        foreach (var item in array)
+        {
+            if (item.Equals(value)) return true;
+        }
+        return false;
+    }
+
+    // для получения количества элементов в очереди
+    public int Size()
+    {
+        return size;
+    }
+
+    // для преобразования очереди в массив объектов
+    public object[] ToArray()
+    {
+        object[] result = new object[size];
+        Array.Copy(queue, result, size);
+        return result;
+    }
+
+    // для копирования элементов в массив указанного типа
+    public T[] ToArray(T[] a)
+    {
+        if (a == null || a.Length < size)
+            a = new T[size];
+
+        Array.Copy(queue, a, size);
+        return a;
+    }
+
+    // для получения элемента из головы очереди без удаления
+    public T Element()
+    {
+        if (size == 0)
+            throw new InvalidOperationException("Очередь пуста.");
+
+        return queue[0];
+    }
+
+    // для попытки добавить элемент (возвращает true/false)
+    public bool Offer(T obj)
+    {
+        try
+        {
+            Add(obj);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // для просмотра элемента из головы очереди без удаления
+    public T Peek()
+    {
+        if (size == 0) return default;
+        return queue[0];
+    }
+
+    // для удаления и возврата минимального элемента из очереди
+    public T Poll()
+    {
+        if (size == 0) return default;
+
+        T result = queue[0];
+        queue[0] = queue[size - 1];
+        size--;
+
+        HeapifyDown(0);
+
+        return result;
+    }
+}
+
+// Пример использования очереди
+class Program
+{
+    static void Main(string[] args)
+    {
+        MyPriorityQueue<int> pq = new MyPriorityQueue<int>();
+
+        pq.Add(5);
+        pq.Add(2);
+        pq.Add(8);
+        pq.Add(1);
+
+        Console.WriteLine("Минимум: " + pq.Peek());   // 1
+        Console.WriteLine("Удалили минимум: " + pq.Poll());  // 1
+        Console.WriteLine("Новый минимум: " + pq.Peek());    // 2
+
+        pq.AddAll(new int[] { 0, 7, 4 });
+        Console.WriteLine("Минимум после addAll: " + pq.Peek()); // 0
+
+        Console.WriteLine("Размер очереди: " + pq.Size());
+    }
+}
