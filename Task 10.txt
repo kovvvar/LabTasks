@@ -1,0 +1,539 @@
+#nullable disable
+using System;
+
+public class MyVector<T>
+{
+    private T[] elementData;        // массив для хранения элементов вектора
+    private int elementCount;       // количество элементов в векторе
+    private int capacityIncrement;  // приращение ёмкости при увеличении
+
+    private const int DEFAULT_CAPACITY = 10;
+
+    // 1) для создания пустого вектора с заданной ёмкостью и приращением
+    public MyVector(int initialCapacity, int capacityIncrement)
+    {
+        if (initialCapacity < 0)
+        {
+            throw new ArgumentException("Начальная ёмкость не может быть отрицательной.");
+        }
+
+        elementData = new T[initialCapacity];
+        elementCount = 0;
+        this.capacityIncrement = capacityIncrement;
+    }
+
+    // 2) для создания пустого вектора с начальной ёмкостью и приращением 0
+    public MyVector(int initialCapacity)
+        : this(initialCapacity, 0)
+    {
+    }
+
+    // 3) для создания пустого вектора с ёмкостью 10 и приращением 0
+    public MyVector()
+        : this(DEFAULT_CAPACITY, 0)
+    {
+    }
+
+    // 4) для создания вектора и заполнения его элементами массива a
+    public MyVector(T[] a)
+    {
+        if (a == null)
+        {
+            throw new ArgumentNullException(nameof(a), "Массив не должен быть null.");
+        }
+
+        elementData = new T[Math.Max(DEFAULT_CAPACITY, a.Length)];
+        elementCount = a.Length;
+        capacityIncrement = 0;
+
+        Array.Copy(a, elementData, elementCount);
+    }
+
+    //Вспомогательные методы
+
+    // для увеличения ёмкости вектора при необходимости
+    private void EnsureCapacity(int minCapacity)
+    {
+        if (elementData.Length >= minCapacity)
+        {
+            return;
+        }
+
+        int newCapacity;
+
+        if (capacityIncrement > 0)
+        {
+            newCapacity = elementData.Length + capacityIncrement;
+            if (newCapacity < minCapacity)
+            {
+                newCapacity = minCapacity;
+            }
+        }
+        else
+        {
+            newCapacity = elementData.Length * 2;
+            if (newCapacity < minCapacity)
+            {
+                newCapacity = minCapacity;
+            }
+        }
+
+        T[] newArray = new T[newCapacity];
+        for (int i = 0; i < elementCount; i++)
+        {
+            newArray[i] = elementData[i];
+        }
+
+        elementData = newArray;
+    }
+
+    // для проверки индекса (0..elementCount-1)
+    private void CheckIndex(int index)
+    {
+        if (index < 0 || index >= elementCount)
+        {
+            throw new ArgumentOutOfRangeException(nameof(index), "Индекс вне диапазона.");
+        }
+    }
+
+    // для проверки индекса вставки (0..elementCount)
+    private void CheckIndexForAdd(int index)
+    {
+        if (index < 0 || index > elementCount)
+        {
+            throw new ArgumentOutOfRangeException(nameof(index), "Индекс вставки вне диапазона.");
+        }
+    }
+
+    // для проверки, содержится ли элемент value в массиве a
+    private bool ArrayContains(T[] a, T value)
+    {
+        foreach (T item in a)
+        {
+            if (item != null && item.Equals(value) || item == null && value == null)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // 5) для добавления элемента в конец вектора
+    public void Add(T e)
+    {
+        // если T ссылочный, можно запретить null (как в прошлых классах)
+        // if (e == null) throw new ArgumentNullException(nameof(e));
+
+        EnsureCapacity(elementCount + 1);
+        elementData[elementCount] = e;
+        elementCount++;
+    }
+
+    // 6) для добавления элементов из массива
+    public void AddAll(T[] a)
+    {
+        if (a == null)
+        {
+            throw new ArgumentNullException(nameof(a));
+        }
+
+        EnsureCapacity(elementCount + a.Length);
+
+        for (int i = 0; i < a.Length; i++)
+        {
+            Add(a[i]);
+        }
+    }
+
+    // 7) для удаления всех элементов из вектора
+    public void Clear()
+    {
+        elementCount = 0;
+    }
+
+    // 8) для проверки, находится ли объект o в векторе
+    public bool Contains(object o)
+    {
+        return IndexOf(o) != -1;
+    }
+
+    // 9) для проверки, содержатся ли все элементы массива a в векторе
+    public bool ContainsAll(T[] a)
+    {
+        if (a == null)
+        {
+            throw new ArgumentNullException(nameof(a));
+        }
+
+        for (int i = 0; i < a.Length; i++)
+        {
+            if (!Contains(a[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // 10) для проверки, является ли вектор пустым
+    public bool IsEmpty()
+    {
+        return elementCount == 0;
+    }
+
+    // 11) для удаления одного указанного объекта o из вектора
+    public bool Remove(object o)
+    {
+        int index = IndexOf(o);
+        if (index == -1)
+        {
+            return false;
+        }
+
+        Remove(index);
+        return true;
+    }
+
+    // 12) для удаления всех указанных объектов из вектора
+    public bool RemoveAll(T[] a)
+    {
+        if (a == null)
+        {
+            throw new ArgumentNullException(nameof(a));
+        }
+
+        bool changed = false;
+
+        for (int i = 0; i < a.Length; i++)
+        {
+            T value = a[i];
+            while (Remove(value))
+            {
+                changed = true;
+            }
+        }
+
+        return changed;
+    }
+
+    // вспомогательный Remove(T value), чтобы переиспользовать логику
+    private bool Remove(T value)
+    {
+        int index = IndexOf(value);
+        if (index == -1)
+        {
+            return false;
+        }
+
+        Remove(index);
+        return true;
+    }
+
+    // 13) для оставления в векторе только указанных объектов
+    public bool RetainAll(T[] a)
+    {
+        if (a == null)
+        {
+            throw new ArgumentNullException(nameof(a));
+        }
+
+        bool changed = false;
+
+        int i = 0;
+        while (i < elementCount)
+        {
+            T value = elementData[i];
+            if (!ArrayContains(a, value))
+            {
+                Remove(i);
+                changed = true;
+            }
+            else
+            {
+                i++;
+            }
+        }
+
+        return changed;
+    }
+
+    // 14) для получения размера вектора
+    public int Size()
+    {
+        return elementCount;
+    }
+
+    // 15) для возвращения массива объектов со всеми элементами вектора
+    public object[] ToArray()
+    {
+        object[] result = new object[elementCount];
+        for (int i = 0; i < elementCount; i++)
+        {
+            result[i] = elementData[i];
+        }
+
+        return result;
+    }
+
+    // 16) для возвращения массива T со всеми элементами вектора
+    public T[] ToArray(T[] a)
+    {
+        if (a == null || a.Length < elementCount)
+        {
+            a = new T[elementCount];
+        }
+
+        for (int i = 0; i < elementCount; i++)
+        {
+            a[i] = elementData[i];
+        }
+
+        return a;
+    }
+
+    // 17) для добавления элемента в указанную позицию
+    public void Add(int index, T e)
+    {
+        CheckIndexForAdd(index);
+        EnsureCapacity(elementCount + 1);
+
+        for (int i = elementCount; i > index; i--)
+        {
+            elementData[i] = elementData[i - 1];
+        }
+
+        elementData[index] = e;
+        elementCount++;
+    }
+
+    // 18) для добавления массива элементов в указанную позицию
+    public void AddAll(int index, T[] a)
+    {
+        if (a == null)
+        {
+            throw new ArgumentNullException(nameof(a));
+        }
+
+        CheckIndexForAdd(index);
+        EnsureCapacity(elementCount + a.Length);
+
+        // сдвигаем вправо хвост
+        for (int i = elementCount - 1; i >= index; i--)
+        {
+            elementData[i + a.Length] = elementData[i];
+        }
+
+        // вставляем новые элементы
+        for (int i = 0; i < a.Length; i++)
+        {
+            elementData[index + i] = a[i];
+        }
+
+        elementCount += a.Length;
+    }
+
+    // 19) для получения элемента по индексу
+    public T Get(int index)
+    {
+        CheckIndex(index);
+        return elementData[index];
+    }
+
+    // 20) для поиска индекса первого вхождения объекта o
+    public int IndexOf(object o)
+    {
+        for (int i = 0; i < elementCount; i++)
+        {
+            if (o == null && elementData[i] == null)
+            {
+                return i;
+            }
+
+            if (o != null && elementData[i] != null && elementData[i].Equals(o))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    // 21) для поиска индекса последнего вхождения объекта o
+    public int LastIndexOf(object o)
+    {
+        for (int i = elementCount - 1; i >= 0; i--)
+        {
+            if (o == null && elementData[i] == null)
+            {
+                return i;
+            }
+
+            if (o != null && elementData[i] != null && elementData[i].Equals(o))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    // 22) для удаления и возврата элемента по индексу
+    public T Remove(int index)
+    {
+        CheckIndex(index);
+
+        T removed = elementData[index];
+
+        for (int i = index; i < elementCount - 1; i++)
+        {
+            elementData[i] = elementData[i + 1];
+        }
+
+        elementCount--;
+        return removed;
+    }
+
+    // 23) для замены элемента по индексу
+    public T Set(int index, T e)
+    {
+        CheckIndex(index);
+
+        T oldValue = elementData[index];
+        elementData[index] = e;
+        return oldValue;
+    }
+
+    // 24) для получения части вектора [fromIndex; toIndex)
+    public MyVector<T> SubList(int fromIndex, int toIndex)
+    {
+        if (fromIndex < 0 || toIndex > elementCount || fromIndex > toIndex)
+        {
+            throw new ArgumentOutOfRangeException("Неверный диапазон индексов.");
+        }
+
+        int newSize = toIndex - fromIndex;
+        T[] newArray = new T[newSize];
+
+        for (int i = 0; i < newSize; i++)
+        {
+            newArray[i] = elementData[fromIndex + i];
+        }
+
+        return new MyVector<T>(newArray);
+    }
+
+    // 25) для обращения к первому элементу вектора
+    public T FirstElement()
+    {
+        if (elementCount == 0)
+        {
+            throw new InvalidOperationException("Вектор пуст.");
+        }
+
+        return elementData[0];
+    }
+
+    // 26) для обращения к последнему элементу вектора
+    public T LastElement()
+    {
+        if (elementCount == 0)
+        {
+            throw new InvalidOperationException("Вектор пуст.");
+        }
+
+        return elementData[elementCount - 1];
+    }
+
+    // 27) для удаления элемента в указанной позиции
+    public void RemoveElementAt(int pos)
+    {
+        Remove(pos);
+    }
+
+    // 28) для удаления диапазона элементов [begin; end)
+    public void RemoveRange(int begin, int end)
+    {
+        if (begin < 0 || end > elementCount || begin > end)
+        {
+            throw new ArgumentOutOfRangeException("Неверный диапазон для RemoveRange.");
+        }
+
+        int count = end - begin;
+        for (int i = 0; i < count; i++)
+        {
+            Remove(begin); // каждый раз удаляем элемент на позиции begin
+        }
+    }
+}
+
+class Program
+{
+    static void Main(string[] args)
+    {
+        // создаём вектор с начальной ёмкостью 5 и приращением 2
+        MyVector<int> vector = new MyVector<int>(5, 2);
+
+        Console.WriteLine("Добавляем элементы 10, 20, 30, 40:");
+        vector.Add(10);
+        vector.Add(20);
+        vector.Add(30);
+        vector.Add(40);
+
+        PrintVector(vector);
+
+        // вставка в середину
+        Console.WriteLine("\nДобавляем 15 в позицию 1:");
+        vector.Add(1, 15);
+        PrintVector(vector);
+
+        // получение элемента
+        Console.WriteLine($"\nЭлемент по индексу 2: {vector.Get(2)}");
+
+        // замена
+        Console.WriteLine("\nЗаменяем значение по индексу 3 на 99:");
+        vector.Set(3, 99);
+        PrintVector(vector);
+
+        // поиск первого вхождения
+        Console.WriteLine($"\nИндекс элемента 20: {vector.IndexOf(20)}");
+
+        // удаление по индексу
+        Console.WriteLine("\nУдаляем элемент на индексе 0:");
+        vector.Remove(0);
+        PrintVector(vector);
+
+        // подсписок
+        Console.WriteLine("\nСоздаем подсписок с 1 по 3:");
+        MyVector<int> sub = vector.SubList(1, 3);
+        PrintVector(sub);
+
+        // первый и последний элемент
+        Console.WriteLine($"\nПервый элемент: {vector.FirstElement()}");
+        Console.WriteLine($"Последний элемент: {vector.LastElement()}");
+
+        // очистка вектора
+        Console.WriteLine("\nОчищаем вектор:");
+        vector.Clear();
+        PrintVector(vector);
+
+        Console.WriteLine("\nРабота программы завершена.");
+    }
+
+    // простой метод для красивого вывода
+    static void PrintVector(MyVector<int> vec)
+    {
+        Console.Write("Содержимое вектора: ");
+        if (vec.Size() == 0)
+        {
+            Console.WriteLine("[пусто]");
+            return;
+        }
+
+        for (int i = 0; i < vec.Size(); i++)
+        {
+            Console.Write(vec.Get(i) + " ");
+        }
+        Console.WriteLine();
+    }
+}

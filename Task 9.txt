@@ -1,0 +1,217 @@
+#nullable disable
+using System;
+using System.IO;
+
+// сам линамический массив
+public class MyArrayList<T>
+{
+    private T[] elementData;   // массив для хранения элементов
+    private int size;          // текущее количество элементов
+
+    private const int DEFAULT_CAPACITY = 10;
+
+    // для создания пустого динамического массива
+    public MyArrayList()
+    {
+        elementData = new T[DEFAULT_CAPACITY];
+        size = 0;
+    }
+
+    // для увеличения внутреннего массива при необходимости
+    private void EnsureCapacity(int minCapacity)
+    {
+        if (minCapacity <= elementData.Length)
+        {
+            return;
+        }
+
+        int newCapacity = (int)(elementData.Length * 1.5) + 1;
+        if (newCapacity < minCapacity)
+        {
+            newCapacity = minCapacity;
+        }
+
+        T[] newArray = new T[newCapacity];
+        for (int i = 0; i < size; i++)
+        {
+            newArray[i] = elementData[i];
+        }
+
+        elementData = newArray;
+    }
+
+    // для добавления элемента в конец массива
+    public void Add(T value)
+    {
+        EnsureCapacity(size + 1);
+        elementData[size] = value;
+        size++;
+    }
+
+    // для получения элемента по индексу
+    public T Get(int index)
+    {
+        if (index < 0 || index >= size)
+        {
+            throw new ArgumentOutOfRangeException(nameof(index), "Индекс вне диапазона.");
+        }
+
+        return elementData[index];
+    }
+
+    // для получения текущего количества элементов
+    public int Size()
+    {
+        return size;
+    }
+}
+
+class Program
+{
+    static void Main(string[] args)
+    {
+        string inputFile = "input.txt";
+
+        // Если файла нет — создаём и записываем пример данных
+        if (!File.Exists(inputFile))
+        {
+            Console.WriteLine("Файл input.txt не найден. Создаю файл с примерными данными...");
+
+            using (StreamWriter writer = new StreamWriter(inputFile))
+            {
+                writer.WriteLine("<html><body><H1>Title</H1></body></html>");
+                writer.WriteLine("<DIV><PrIvet></PrIvet><div></DIV>");
+                writer.WriteLine("</html><Html><test1><Test1>");
+            }
+
+            Console.WriteLine("Файл input.txt создан.\n");
+        }
+
+        // читаем строки из файла
+        string[] lines = File.ReadAllLines(inputFile);
+
+        // динамический массив для всех найденных тегов
+        MyArrayList<string> tags = new MyArrayList<string>();
+
+        // извлечение тегов из строк
+        foreach (string line in lines)
+        {
+            int i = 0;
+            while (i < line.Length)
+            {
+                if (line[i] == '<')
+                {
+                    int start = i;
+                    int end = line.IndexOf('>', start);
+
+                    if (end != -1)
+                    {
+                        string candidate = line.Substring(start, end - start + 1);
+
+                        if (IsValidTag(candidate))
+                        {
+                            tags.Add(candidate);
+                        }
+
+                        i = end + 1;
+                    }
+                    else
+                    {
+                        break; // нет закрывающего '>'
+                    }
+                }
+                else
+                {
+                    i++;
+                }
+            }
+        }
+
+        // удаление повторяющихся тегов
+        MyArrayList<string> uniqueTags = new MyArrayList<string>();
+
+        for (int i = 0; i < tags.Size(); i++)
+        {
+            string tag = tags.Get(i);
+            string normalized = NormalizeTag(tag);
+
+            bool exists = false;
+
+            for (int j = 0; j < uniqueTags.Size(); j++)
+            {
+                string otherNormalized = NormalizeTag(uniqueTags.Get(j));
+                if (otherNormalized == normalized)
+                {
+                    exists = true;
+                    break;
+                }
+            }
+
+            if (!exists)
+            {
+                uniqueTags.Add(tag);
+            }
+        }
+
+        //вывод
+        Console.WriteLine("Уникальные теги (без учёта / и регистра):");
+        for (int i = 0; i < uniqueTags.Size(); i++)
+        {
+            Console.WriteLine(uniqueTags.Get(i));
+        }
+    }
+
+    // нормализация тега: убираем < >, ведущий / и регистр
+    static string NormalizeTag(string tag)
+    {
+        // убираем < и >
+        string inside = tag.Substring(1, tag.Length - 2);
+
+        // убираем ведущий /
+        if (inside.StartsWith("/"))
+        {
+            inside = inside.Substring(1);
+        }
+
+        // приводим к нижнему регистру
+        inside = inside.ToLower();
+
+        return inside;
+    }
+
+    // проверка, является ли строка корректным тегом
+    static bool IsValidTag(string s)
+    {
+        // должен начинаться с < и заканчиваться >
+        if (s.Length < 3) return false;
+        if (!s.StartsWith("<") || !s.EndsWith(">")) return false;
+
+        string inside = s.Substring(1, s.Length - 2);
+        if (inside.Length == 0) return false;
+
+        // первый символ (после возможного /) — буква
+        int index = 0;
+        if (inside[0] == '/')
+        {
+            index = 1;
+            if (inside.Length == 1) return false;
+        }
+
+        if (!char.IsLetter(inside[index]))
+        {
+            return false;
+        }
+
+        // остальные символы — буквы или цифры
+        for (int i = index + 1; i < inside.Length; i++)
+        {
+            char c = inside[i];
+            if (!char.IsLetterOrDigit(c))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+}

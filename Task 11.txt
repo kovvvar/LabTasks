@@ -1,0 +1,211 @@
+#nullable disable
+using System;
+using System.IO;
+
+public class MyVector<T>
+{
+    private T[] elementData;    // массив для хранения элементов
+    private int elementCount;   // текущее количество элементов
+
+    private const int DEFAULT_CAPACITY = 10;
+
+    // конструктор по умолчанию
+    public MyVector()
+    {
+        elementData = new T[DEFAULT_CAPACITY];
+        elementCount = 0;
+    }
+
+    // внутренний метод для увеличения ёмкости
+    private void EnsureCapacity(int minCapacity)
+    {
+        if (minCapacity <= elementData.Length)
+        {
+            return;
+        }
+
+        int newCapacity = elementData.Length * 2;
+        if (newCapacity < minCapacity)
+        {
+            newCapacity = minCapacity;
+        }
+
+        T[] newArray = new T[newCapacity];
+        for (int i = 0; i < elementCount; i++)
+        {
+            newArray[i] = elementData[i];
+        }
+
+        elementData = newArray;
+    }
+
+    // для добавления элемента в конец вектора
+    public void Add(T value)
+    {
+        EnsureCapacity(elementCount + 1);
+        elementData[elementCount] = value;
+        elementCount++;
+    }
+
+    // для получения элемента по индексу
+    public T Get(int index)
+    {
+        if (index < 0 || index >= elementCount)
+        {
+            throw new ArgumentOutOfRangeException(nameof(index), "Индекс вне диапазона.");
+        }
+
+        return elementData[index];
+    }
+
+    // для получения количества элементов
+    public int Size()
+    {
+        return elementCount;
+    }
+}
+class Program
+{
+    static void Main(string[] args)
+    {
+        string inputFile = "input.txt";
+        string outputFile = "output.txt";
+
+        // Если input.txt не существует – создаём файл с примерными строками
+        if (!File.Exists(inputFile))
+        {
+            Console.WriteLine("Файл input.txt не найден. Создаю файл с примерными данными...");
+
+            using (StreamWriter writer = new StreamWriter(inputFile))
+            {
+                writer.WriteLine("Вот пример строки с IP 192.168.0.1 и ещё один 10.0.0.255.");
+                writer.WriteLine("Некорректный адрес 999.10.10.10 и склеенный 111.111.111.1111.");
+                writer.WriteLine("Ещё строка: 1.2.3.4, 255.255.255.255 и число121.121.121.2число.");
+            }
+
+            Console.WriteLine("Файл input.txt создан.\n");
+        }
+
+        // 1. Считываем строки из файла в MyVector<string>
+        string[] allLines = File.ReadAllLines(inputFile);
+        MyVector<string> linesVector = new MyVector<string>();
+
+        for (int i = 0; i < allLines.Length; i++)
+        {
+            linesVector.Add(allLines[i]);
+        }
+
+        // 2. Ищем IP-адреса и записываем в новый вектор
+        MyVector<string> ipVector = new MyVector<string>();
+
+        for (int lineIndex = 0; lineIndex < linesVector.Size(); lineIndex++)
+        {
+            string line = linesVector.Get(lineIndex);
+            int i = 0;
+
+            while (i < line.Length)
+            {
+                if (char.IsDigit(line[i]))
+                {
+                    int start = i;
+
+                    // берём подряд цифры и точки
+                    while (i < line.Length && (char.IsDigit(line[i]) || line[i] == '.'))
+                    {
+                        i++;
+                    }
+
+                    int end = i - 1;
+                    string candidate = line.Substring(start, end - start + 1);
+
+                    // проверяем, что слева и справа нет цифр (не пересекается с числами)
+                    bool leftOk = start == 0 || !char.IsDigit(line[start - 1]);
+                    bool rightOk = end == line.Length - 1 || !char.IsDigit(line[end + 1]);
+
+                    if (leftOk && rightOk && IsValidIp(candidate))
+                    {
+                        ipVector.Add(candidate);
+                    }
+                }
+                else
+                {
+                    i++;
+                }
+            }
+        }
+
+        // 3. Записываем второй вектор в output.txt
+        using (StreamWriter writer = new StreamWriter(outputFile, false))
+        {
+            for (int i = 0; i < ipVector.Size(); i++)
+            {
+                writer.WriteLine(ipVector.Get(i));
+            }
+        }
+
+        // 4. Выводим IP на экран для контроля
+        Console.WriteLine("Найденные корректные IP-адреса (также записаны в output.txt):");
+        for (int i = 0; i < ipVector.Size(); i++)
+        {
+            Console.WriteLine(ipVector.Get(i));
+        }
+    }
+
+    // проверка строки candidate на корректный IPv4-адрес
+    static bool IsValidIp(string candidate)
+    {
+        // IPv4: ровно 3 точки → 4 части
+        int dotCount = 0;
+        for (int i = 0; i < candidate.Length; i++)
+        {
+            if (candidate[i] == '.')
+            {
+                dotCount++;
+            }
+        }
+
+        if (dotCount != 3)
+        {
+            return false;
+        }
+
+        string[] parts = candidate.Split('.');
+        if (parts.Length != 4)
+        {
+            return false;
+        }
+
+        foreach (string part in parts)
+        {
+            // пустая часть недопустима
+            if (part.Length == 0)
+            {
+                return false;
+            }
+
+            // не более трёх цифр
+            if (part.Length > 3)
+            {
+                return false;
+            }
+
+            // все символы должны быть цифрами
+            for (int i = 0; i < part.Length; i++)
+            {
+                if (!char.IsDigit(part[i]))
+                {
+                    return false;
+                }
+            }
+
+            // значение от 0 до 255
+            int value = int.Parse(part);
+            if (value < 0 || value > 255)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+}
