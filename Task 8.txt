@@ -69,8 +69,6 @@ public class MyArrayList<T>
             throw new ArgumentOutOfRangeException(nameof(index), "Индекс вставки вне диапазона.");
     }
 
-    // ===================== ОСНОВНЫЕ МЕТОДЫ =====================
-
     // 4) для добавления элемента в конец массива
     public void Add(T e)
     {
@@ -362,3 +360,4 @@ class Program
         Console.WriteLine("SubList size = " + sub.Size());   // 2
     }
 }
+
