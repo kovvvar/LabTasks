@@ -1,0 +1,641 @@
+#nullable disable
+using System;
+using System.Collections.Generic;
+
+//MyVector
+
+public class MyVector<T>
+{
+    protected T[] elementData;
+    protected int elementCount;
+    protected int capacityIncrement;
+
+    private const int DEFAULT_CAPACITY = 10;
+
+    public MyVector(int initialCapacity, int capacityIncrement)
+    {
+        if (initialCapacity < 0)
+        {
+            throw new ArgumentException("Начальная ёмкость не может быть отрицательной.");
+        }
+
+        elementData = new T[initialCapacity];
+        elementCount = 0;
+        this.capacityIncrement = capacityIncrement;
+    }
+
+    public MyVector(int initialCapacity) : this(initialCapacity, 0) { }
+
+    public MyVector() : this(DEFAULT_CAPACITY, 0) { }
+
+    public MyVector(T[] a)
+    {
+        if (a == null)
+        {
+            throw new ArgumentNullException(nameof(a));
+        }
+
+        elementData = new T[Math.Max(DEFAULT_CAPACITY, a.Length)];
+        elementCount = a.Length;
+        capacityIncrement = 0;
+
+        Array.Copy(a, elementData, elementCount);
+    }
+
+    private void EnsureCapacity(int minCapacity)
+    {
+        if (elementData.Length >= minCapacity)
+        {
+            return;
+        }
+
+        int newCapacity;
+        if (capacityIncrement > 0)
+        {
+            newCapacity = elementData.Length + capacityIncrement;
+        }
+        else
+        {
+            newCapacity = elementData.Length * 2;
+        }
+
+        if (newCapacity < minCapacity)
+        {
+            newCapacity = minCapacity;
+        }
+
+        T[] newArray = new T[newCapacity];
+        for (int i = 0; i < elementCount; i++)
+        {
+            newArray[i] = elementData[i];
+        }
+
+        elementData = newArray;
+    }
+
+    protected void CheckIndex(int index)
+    {
+        if (index < 0 || index >= elementCount)
+        {
+            throw new ArgumentOutOfRangeException(nameof(index), "Индекс вне диапазона.");
+        }
+    }
+
+    public void Add(T value)
+    {
+        EnsureCapacity(elementCount + 1);
+        elementData[elementCount] = value;
+        elementCount++;
+    }
+
+    public T Get(int index)
+    {
+        CheckIndex(index);
+        return elementData[index];
+    }
+
+    public T Remove(int index)
+    {
+        CheckIndex(index);
+        T removed = elementData[index];
+
+        for (int i = index; i < elementCount - 1; i++)
+        {
+            elementData[i] = elementData[i + 1];
+        }
+
+        elementCount--;
+        return removed;
+    }
+
+    public int Size()
+    {
+        return elementCount;
+    }
+}
+
+//MyStack
+
+public class MyStack<T> : MyVector<T>
+{
+    public void Push(T item)
+    {
+        Add(item);
+    }
+
+    public T Pop()
+    {
+        if (Empty())
+        {
+            throw new InvalidOperationException("Стек пуст (pop).");
+        }
+
+        int topIndex = Size() - 1;
+        return Remove(topIndex);
+    }
+
+    public T Peek()
+    {
+        if (Empty())
+        {
+            throw new InvalidOperationException("Стек пуст (peek).");
+        }
+
+        return Get(Size() - 1);
+    }
+
+    public bool Empty()
+    {
+        return Size() == 0;
+    }
+}
+
+//программа
+
+class Program
+{
+    static void Main(string[] args)
+    {
+        try
+        {
+            string expression;
+
+            if (args.Length > 0)
+            {
+                // первое значение считаем выражением (может быть без пробелов или с)
+                expression = args[0];
+                for (int i = 1; i < args.Length; i++)
+                {
+                    expression += " " + args[i];
+                }
+                Console.WriteLine("Выражение из аргументов командной строки:");
+                Console.WriteLine(expression);
+            }
+            else
+            {
+                Console.WriteLine("Введите математическое выражение:");
+                expression = Console.ReadLine();
+            }
+
+            // разбор выражения в токены
+            MyVector<string> tokens = Tokenize(expression);
+
+            // найдём переменные и спросим у пользователя их значения
+            Dictionary<string, double> vars = ReadVariables(tokens);
+
+            // перевод в обратную польскую нотацию
+            MyVector<string> rpn = InfixToRpn(tokens);
+
+            // вычисление значения
+            double result = EvaluateRpn(rpn, vars);
+
+            Console.WriteLine("Результат: " + result);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Ошибка: " + ex.Message);
+        }
+    }
+
+    //разбор строки в токены
+
+    static MyVector<string> Tokenize(string expr)
+    {
+        MyVector<string> tokens = new MyVector<string>();
+
+        int i = 0;
+        while (i < expr.Length)
+        {
+            char c = expr[i];
+
+            if (char.IsWhiteSpace(c))
+            {
+                i++;
+                continue;
+            }
+
+            // число
+            if (char.IsDigit(c) || c == '.')
+            {
+                int start = i;
+                bool hasDot = (c == '.');
+
+                i++;
+                while (i < expr.Length)
+                {
+                    char ch = expr[i];
+                    if (char.IsDigit(ch))
+                    {
+                        i++;
+                    }
+                    else if (ch == '.' && !hasDot)
+                    {
+                        hasDot = true;
+                        i++;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+
+                string number = expr.Substring(start, i - start);
+                tokens.Add(number);
+                continue;
+            }
+
+            // идентификатор (переменная или функция)
+            if (char.IsLetter(c))
+            {
+                int start = i;
+                i++;
+                while (i < expr.Length && char.IsLetter(expr[i]))
+                {
+                    i++;
+                }
+
+                string word = expr.Substring(start, i - start);
+                tokens.Add(word);
+                continue;
+            }
+
+            // одиночные символы: операторы и скобки
+            if ("+-*/^(),".IndexOf(c) >= 0)
+            {
+                tokens.Add(c.ToString());
+                i++;
+                continue;
+            }
+
+            throw new Exception($"Неизвестный символ: '{c}'");
+        }
+
+        return tokens;
+    }
+
+    //переменные
+
+    static Dictionary<string, double> ReadVariables(MyVector<string> tokens)
+    {
+        HashSet<string> functions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "sqrt", "abs", "sign", "sin", "cos", "tan", "ln", "log",
+            "min", "max", "mod", "div", "exp", "trunc"
+        };
+
+        HashSet<string> operators = new HashSet<string> { "+", "-", "*", "/", "^", "(", ")", "," };
+
+        HashSet<string> variableNames = new HashSet<string>();
+
+        for (int i = 0; i < tokens.Size(); i++)
+        {
+            string t = tokens.Get(i);
+
+            // идентификатор, не функция и не оператор → переменная
+            if (IsIdentifier(t) &&
+                !functions.Contains(t.ToLower()) &&
+                !operators.Contains(t))
+            {
+                variableNames.Add(t);
+            }
+        }
+
+        Dictionary<string, double> values = new Dictionary<string, double>();
+
+        foreach (string name in variableNames)
+        {
+            while (true)
+            {
+                Console.Write($"Введите значение переменной {name}: ");
+                string input = Console.ReadLine();
+                if (double.TryParse(input, out double val))
+                {
+                    values[name] = val;
+                    break;
+                }
+                Console.WriteLine("Некорректное число, попробуйте ещё раз.");
+            }
+        }
+
+        return values;
+    }
+
+    static bool IsIdentifier(string token)
+    {
+        if (string.IsNullOrEmpty(token)) return false;
+        return char.IsLetter(token[0]);
+    }
+
+    //реализация нотации
+
+    static MyVector<string> InfixToRpn(MyVector<string> tokens)
+    {
+        MyVector<string> output = new MyVector<string>();
+        MyStack<string> opStack = new MyStack<string>();
+
+        for (int i = 0; i < tokens.Size(); i++)
+        {
+            string token = tokens.Get(i);
+
+            if (IsNumber(token) || IsVariable(token))
+            {
+                output.Add(token);
+            }
+            else if (IsFunction(token))
+            {
+                opStack.Push(token);
+            }
+            else if (token == ",")
+            {
+                // разделитель аргументов функции
+                while (!opStack.Empty() && opStack.Peek() != "(")
+                {
+                    output.Add(opStack.Pop());
+                }
+                if (opStack.Empty())
+                {
+                    throw new Exception("Неверное использование запятой или скобок.");
+                }
+            }
+            else if (IsOperator(token))
+            {
+                while (!opStack.Empty() &&
+                       (IsOperator(opStack.Peek()) || IsFunction(opStack.Peek())) &&
+                       ((GetPrecedence(opStack.Peek()) > GetPrecedence(token)) ||
+                        (GetPrecedence(opStack.Peek()) == GetPrecedence(token) && !IsRightAssociative(token))) &&
+                       opStack.Peek() != "(")
+                {
+                    output.Add(opStack.Pop());
+                }
+
+                opStack.Push(token);
+            }
+            else if (token == "(")
+            {
+                opStack.Push(token);
+            }
+            else if (token == ")")
+            {
+                while (!opStack.Empty() && opStack.Peek() != "(")
+                {
+                    output.Add(opStack.Pop());
+                }
+                if (opStack.Empty())
+                {
+                    throw new Exception("Несогласованные скобки.");
+                }
+                opStack.Pop(); // удаляем "("
+
+                // если после этого на вершине функция — перенести её в выход
+                if (!opStack.Empty() && IsFunction(opStack.Peek()))
+                {
+                    output.Add(opStack.Pop());
+                }
+            }
+            else
+            {
+                throw new Exception($"Неожиданный токен: {token}");
+            }
+        }
+
+        while (!opStack.Empty())
+        {
+            string op = opStack.Pop();
+            if (op == "(" || op == ")")
+            {
+                throw new Exception("Несогласованные скобки.");
+            }
+            output.Add(op);
+        }
+
+        return output;
+    }
+
+    static bool IsNumber(string token)
+    {
+        return double.TryParse(token, out _);
+    }
+
+    static bool IsVariable(string token)
+    {
+        return IsIdentifier(token) && !IsFunction(token);
+    }
+
+    static bool IsFunction(string token)
+    {
+        string t = token.ToLower();
+        return t == "sqrt" || t == "abs" || t == "sign" ||
+               t == "sin" || t == "cos" || t == "tan" ||
+               t == "ln" || t == "log" ||
+               t == "min" || t == "max" ||
+               t == "mod" || t == "div" ||
+               t == "exp" || t == "trunc";
+    }
+
+    static bool IsOperator(string token)
+    {
+        return token == "+" || token == "-" || token == "*" ||
+               token == "/" || token == "^";
+    }
+
+    static int GetPrecedence(string op)
+    {
+        // чем больше число — тем выше приоритет
+        switch (op)
+        {
+            case "^":
+                return 4;
+            case "*":
+            case "/":
+                return 3;
+            case "+":
+            case "-":
+                return 2;
+            default:
+                return 0;
+        }
+    }
+
+    static bool IsRightAssociative(string op)
+    {
+        // степень обычно правоассоциативная
+        return op == "^";
+    }
+
+    // само вычисление обратной нотацией
+
+    static double EvaluateRpn(MyVector<string> rpn, Dictionary<string, double> vars)
+    {
+        MyStack<double> stack = new MyStack<double>();
+
+        for (int i = 0; i < rpn.Size(); i++)
+        {
+            string token = rpn.Get(i);
+
+            if (IsNumber(token))
+            {
+                stack.Push(double.Parse(token));
+            }
+            else if (IsVariable(token))
+            {
+                if (!vars.TryGetValue(token, out double val))
+                {
+                    throw new Exception($"Нет значения для переменной {token}");
+                }
+                stack.Push(val);
+            }
+            else if (IsFunction(token))
+            {
+                ApplyFunction(stack, token.ToLower());
+            }
+            else if (IsOperator(token))
+            {
+                ApplyOperator(stack, token);
+            }
+            else
+            {
+                throw new Exception($"Неизвестный токен в RPN: {token}");
+            }
+        }
+
+        if (stack.Size() != 1)
+        {
+            throw new Exception("Некорректное выражение (в стеке осталось не одно значение).");
+        }
+
+        return stack.Pop();
+    }
+
+    static void ApplyOperator(MyStack<double> stack, string op)
+    {
+        if (stack.Size() < 2)
+        {
+            throw new Exception("Недостаточно операндов для операции " + op);
+        }
+
+        double b = stack.Pop();
+        double a = stack.Pop();
+
+        double result;
+
+        switch (op)
+        {
+            case "+":
+                result = a + b;
+                break;
+            case "-":
+                result = a - b;
+                break;
+            case "*":
+                result = a * b;
+                break;
+            case "/":
+                if (b == 0)
+                    throw new DivideByZeroException("Деление на ноль.");
+                result = a / b;
+                break;
+            case "^":
+                result = Math.Pow(a, b);
+                break;
+            default:
+                throw new Exception("Неизвестный оператор: " + op);
+        }
+
+        stack.Push(result);
+    }
+
+    static void ApplyFunction(MyStack<double> stack, string func)
+    {
+        // бинарные функции
+        if (func == "min" || func == "max" || func == "mod" || func == "div")
+        {
+            if (stack.Size() < 2)
+            {
+                throw new Exception($"Недостаточно аргументов для функции {func}");
+            }
+
+            double b = stack.Pop();
+            double a = stack.Pop();
+            double result;
+
+            switch (func)
+            {
+                case "min":
+                    result = Math.Min(a, b);
+                    break;
+                case "max":
+                    result = Math.Max(a, b);
+                    break;
+                case "mod":
+                    if (b == 0)
+                        throw new DivideByZeroException("Деление на ноль в mod.");
+                    result = a % b;
+                    break;
+                case "div":
+                    if (b == 0)
+                        throw new DivideByZeroException("Деление на ноль в div.");
+                    result = Math.Truncate(a / b);
+                    break;
+                default:
+                    throw new Exception("Неизвестная бинарная функция: " + func);
+            }
+
+            stack.Push(result);
+        }
+        else
+        {
+            // унарные функции
+            if (stack.Size() < 1)
+            {
+                throw new Exception($"Недостаточно аргументов для функции {func}");
+            }
+
+            double x = stack.Pop();
+            double result;
+
+            switch (func)
+            {
+                case "sqrt":
+                    if (x < 0)
+                        throw new Exception("Аргумент sqrt не может быть отрицательным.");
+                    result = Math.Sqrt(x);
+                    break;
+                case "abs":
+                    result = Math.Abs(x);
+                    break;
+                case "sign":
+                    result = Math.Sign(x);
+                    break;
+                case "sin":
+                    result = Math.Sin(x);
+                    break;
+                case "cos":
+                    result = Math.Cos(x);
+                    break;
+                case "tan":
+                    result = Math.Tan(x);
+                    break;
+                case "ln":
+                    if (x <= 0)
+                        throw new Exception("Аргумент ln должен быть > 0.");
+                    result = Math.Log(x);
+                    break;
+                case "log":
+                    if (x <= 0)
+                        throw new Exception("Аргумент log должен быть > 0.");
+                    result = Math.Log10(x);
+                    break;
+                case "exp":
+                    result = Math.Exp(x);
+                    break;
+                case "trunc":
+                    result = Math.Truncate(x);
+                    break;
+                default:
+                    throw new Exception("Неизвестная функция: " + func);
+            }
+
+            stack.Push(result);
+        }
+    }
+}
