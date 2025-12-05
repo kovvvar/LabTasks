@@ -1,0 +1,272 @@
+#nullable disable
+using System;
+using System.IO;
+
+#nullable disable
+using System;
+
+public class MyArrayDeque<T>
+{
+    private T[] elements;      // массив для хранения элементов
+    private int head;          // индекс головы (первого элемента)
+    private int tail;          // индекс позиции после последнего элемента
+    private int size;          // текущее количество элементов
+
+    private const int DEFAULT_CAPACITY = 16;
+
+    // для создания пустой двунаправленной очереди с начальной вместимостью 16
+    public MyArrayDeque()
+    {
+        elements = new T[DEFAULT_CAPACITY];
+        head = 0;
+        tail = 0;
+        size = 0;
+    }
+
+    // вспомогательный метод для увеличения ёмкости при необходимости
+    private void EnsureCapacity()
+    {
+        if (size < elements.Length)
+        {
+            return;
+        }
+
+        int newCapacity = elements.Length * 2;
+        if (newCapacity == 0)
+        {
+            newCapacity = DEFAULT_CAPACITY;
+        }
+
+        T[] newArray = new T[newCapacity];
+
+        // копируем элементы в правильном порядке в новый массив с нуля
+        for (int i = 0; i < size; i++)
+        {
+            int index = (head + i) % elements.Length;
+            newArray[i] = elements[index];
+        }
+
+        elements = newArray;
+        head = 0;
+        tail = size;
+    }
+
+    // для перехода вперёд по кольцу
+    private int Increment(int index)
+    {
+        return (index + 1) % elements.Length;
+    }
+
+    // для перехода назад по кольцу
+    private int Decrement(int index)
+    {
+        return (index - 1 + elements.Length) % elements.Length;
+    }
+
+    // для проверки, пуста ли очередь
+    public bool IsEmpty()
+    {
+        return size == 0;
+    }
+
+    // для получения количества элементов
+    public int Size()
+    {
+        return size;
+    }
+
+    // для добавления элемента в хвост очереди
+    public void AddLast(T obj)
+    {
+        EnsureCapacity();
+        elements[tail] = obj;
+        tail = Increment(tail);
+        size++;
+    }
+
+    // для добавления элемента в голову очереди
+    public void AddFirst(T obj)
+    {
+        EnsureCapacity();
+        head = Decrement(head);
+        elements[head] = obj;
+        size++;
+    }
+
+    // для получения первого элемента без удаления
+    public T GetFirst()
+    {
+        if (IsEmpty())
+        {
+            throw new InvalidOperationException("Очередь пуста.");
+        }
+
+        return elements[head];
+    }
+
+    // для возврата массива со всеми элементами в правильном порядке
+    public T[] ToArray(T[] a)
+    {
+        if (a == null || a.Length < size)
+        {
+            a = new T[size];
+        }
+
+        for (int i = 0; i < size; i++)
+        {
+            int index = (head + i) % elements.Length;
+            a[i] = elements[index];
+        }
+
+        return a;
+    }
+}
+
+
+class Program
+{
+    static void Main(string[] args)
+    {
+        string inputFile = "input.txt";
+        string outputFile = "sorted.txt";
+
+        // проверяем, существует ли файл input.txt
+        if (!File.Exists(inputFile))
+        {
+            Console.WriteLine("Файл input.txt не найден.");
+            return;
+        }
+
+        // читаем все строки из файла
+        string[] lines = File.ReadAllLines(inputFile);
+
+        // создаём двунаправленную очередь строк
+        MyArrayDeque<string> deque = new MyArrayDeque<string>();
+
+        // заполняем дек по правилу задачи
+        for (int i = 0; i < lines.Length; i++)
+        {
+            string currentLine = lines[i];
+            int currentDigits = CountDigits(currentLine);
+
+            if (deque.IsEmpty())
+            {
+                // если дек пустой, просто добавляем первую строку в хвост
+                deque.AddLast(currentLine);
+            }
+            else
+            {
+                // берём первую строку в деке
+                string firstLine = deque.GetFirst();
+                int firstDigits = CountDigits(firstLine);
+
+                // если в новой строке больше цифр, чем в первой строке дека
+                if (currentDigits > firstDigits)
+                {
+                    // добавить в конец
+                    deque.AddLast(currentLine);
+                }
+                else
+                {
+                    // иначе добавить в начало
+                    deque.AddFirst(currentLine);
+                }
+            }
+        }
+
+        // вывод результата в файл sorted.txt
+        using (StreamWriter writer = new StreamWriter(outputFile, false))
+        {
+            string[] dequeArray = deque.ToArray(new string[deque.Size()]);
+            for (int i = 0; i < dequeArray.Length; i++)
+            {
+                writer.WriteLine(dequeArray[i]);
+            }
+        }
+
+        Console.WriteLine("Отсортированные строки записаны в файл " + outputFile);
+
+        // ввод n с клавиатуры
+        int maxSpaces;
+
+        while (true)
+        {
+            Console.Write("Введите n (максимальное допустимое количество пробелов в строке): ");
+            string input = Console.ReadLine();
+
+            if (int.TryParse(input, out maxSpaces) && maxSpaces >= 0)
+            {
+                break;
+            }
+
+            Console.WriteLine("Некорректное число. Попробуйте ещё раз.");
+        }
+
+        // удаление строк, содержащих более n пробелов
+        // удобнее сделать новый дек и перенести только подходящие строки
+        MyArrayDeque<string> filteredDeque = new MyArrayDeque<string>();
+
+        string[] allLinesFromDeque = deque.ToArray(new string[deque.Size()]);
+
+        for (int i = 0; i < allLinesFromDeque.Length; i++)
+        {
+            string line = allLinesFromDeque[i];
+            int spaces = CountSpaces(line);
+
+            if (spaces <= maxSpaces)
+            {
+                filteredDeque.AddLast(line);
+            }
+        }
+
+        // вывод оставшихся строк на экран
+        Console.WriteLine("\nСтроки, оставшиеся в деке после удаления:");
+
+        if (filteredDeque.IsEmpty())
+        {
+            Console.WriteLine("[дек пуст]");
+        }
+        else
+        {
+            string[] resultArray = filteredDeque.ToArray(new string[filteredDeque.Size()]);
+            for (int i = 0; i < resultArray.Length; i++)
+            {
+                Console.WriteLine(resultArray[i]);
+            }
+        }
+
+        Console.WriteLine("\nРабота программы завершена.");
+    }
+
+    // для подсчёта десятичных цифр в строке
+    static int CountDigits(string text)
+    {
+        int count = 0;
+
+        for (int i = 0; i < text.Length; i++)
+        {
+            if (char.IsDigit(text[i]))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    // для подсчёта пробелов в строке
+    static int CountSpaces(string text)
+    {
+        int count = 0;
+
+        for (int i = 0; i < text.Length; i++)
+        {
+            if (text[i] == ' ')
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+}

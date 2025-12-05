@@ -1,0 +1,646 @@
+#nullable disable
+using System;
+
+public class MyArrayDeque<T>
+{
+    private T[] elements;        // массив для хранения элементов
+    private int head;            // индекс головы очереди
+    private int tail;            // индекс хвоста очереди (позиция для следующего элемента)
+    private int size;            // текущее количество элементов
+
+    private const int DEFAULT_CAPACITY = 16;
+
+    // 1) для создания пустой очереди с начальной вместимостью 16 элементов
+    public MyArrayDeque()
+    {
+        elements = new T[DEFAULT_CAPACITY];
+        head = 0;
+        tail = 0;
+        size = 0;
+    }
+
+    // 2) для создания очереди из массива элементов
+    public MyArrayDeque(T[] a)
+    {
+        if (a == null)
+        {
+            throw new ArgumentNullException(nameof(a), "Массив не должен быть null.");
+        }
+
+        int capacity = Math.Max(DEFAULT_CAPACITY, a.Length);
+        elements = new T[capacity];
+        head = 0;
+        tail = a.Length;
+        size = a.Length;
+
+        for (int i = 0; i < a.Length; i++)
+        {
+            elements[i] = a[i];
+        }
+    }
+
+    // 3) для создания пустой очереди с указанной вместимостью
+    public MyArrayDeque(int numElements)
+    {
+        if (numElements <= 0)
+        {
+            throw new ArgumentException("Вместимость должна быть больше нуля.");
+        }
+
+        elements = new T[numElements];
+        head = 0;
+        tail = 0;
+        size = 0;
+    }
+
+    // вспомогательные методы
+
+    // для увеличения ёмкости массива при необходимости
+    private void EnsureCapacity()
+    {
+        if (size < elements.Length)
+        {
+            return;
+        }
+
+        int newCapacity = elements.Length * 2;
+        if (newCapacity == 0)
+        {
+            newCapacity = DEFAULT_CAPACITY;
+        }
+
+        T[] newArray = new T[newCapacity];
+
+        // копируем элементы в правильном порядке начиная с индекса 0
+        for (int i = 0; i < size; i++)
+        {
+            newArray[i] = elements[(head + i) % elements.Length];
+        }
+
+        elements = newArray;
+        head = 0;
+        tail = size;
+    }
+
+    // для получения индекса с переходом по кругу вперёд
+    private int Increment(int index)
+    {
+        return (index + 1) % elements.Length;
+    }
+
+    // для получения индекса с переходом по кругу назад
+    private int Decrement(int index)
+    {
+        return (index - 1 + elements.Length) % elements.Length;
+    }
+
+    // для проверки, содержится ли value в массиве a
+    private bool ArrayContains(T[] a, T value)
+    {
+        foreach (T item in a)
+        {
+            if (object.Equals(item, value))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // для получения количества элементов (внутренний помощник)
+    private int GetInternalIndex(int logicalIndex)
+    {
+        return (head + logicalIndex) % elements.Length;
+    }
+
+    // для удаления элемента по "логическому" индексу 0..size-1
+    private void RemoveAtLogicalIndex(int logicalIndex)
+    {
+        if (logicalIndex < 0 || logicalIndex >= size)
+        {
+            throw new ArgumentOutOfRangeException(nameof(logicalIndex));
+        }
+
+        int len = elements.Length;
+
+        // сдвигаем все элементы после logicalIndex на одну позицию назад
+        for (int i = logicalIndex; i < size - 1; i++)
+        {
+            int fromIndex = (head + i + 1) % len;
+            int toIndex = (head + i) % len;
+            elements[toIndex] = elements[fromIndex];
+        }
+
+        // обновляем tail и size
+        tail = Decrement(tail);
+        elements[tail] = default;
+        size--;
+    }
+
+    // основное
+
+    // 4) для добавления элемента в конец очереди
+    public void Add(T e)
+    {
+        AddLast(e);
+    }
+
+    // 5) для добавления элементов из массива
+    public void AddAll(T[] a)
+    {
+        if (a == null)
+        {
+            throw new ArgumentNullException(nameof(a));
+        }
+
+        for (int i = 0; i < a.Length; i++)
+        {
+            AddLast(a[i]);
+        }
+    }
+
+    // 6) для удаления всех элементов из очереди
+    public void Clear()
+    {
+        for (int i = 0; i < size; i++)
+        {
+            int idx = GetInternalIndex(i);
+            elements[idx] = default;
+        }
+
+        head = 0;
+        tail = 0;
+        size = 0;
+    }
+
+    // 7) для проверки, находится ли объект в очереди
+    public bool Contains(object o)
+    {
+        for (int i = 0; i < size; i++)
+        {
+            int idx = GetInternalIndex(i);
+            if (object.Equals(elements[idx], o))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // 8) для проверки, содержатся ли все элементы массива a в очереди
+    public bool ContainsAll(T[] a)
+    {
+        if (a == null)
+        {
+            throw new ArgumentNullException(nameof(a));
+        }
+
+        for (int i = 0; i < a.Length; i++)
+        {
+            if (!Contains(a[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // 9) для проверки, пуста ли очередь
+    public bool IsEmpty()
+    {
+        return size == 0;
+    }
+
+    // 10) для удаления одного указанного объекта из очереди
+    public bool Remove(object o)
+    {
+        for (int i = 0; i < size; i++)
+        {
+            int idx = GetInternalIndex(i);
+            if (object.Equals(elements[idx], o))
+            {
+                RemoveAtLogicalIndex(i);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // 11) для удаления всех указанных объектов из очереди
+    public bool RemoveAll(T[] a)
+    {
+        if (a == null)
+        {
+            throw new ArgumentNullException(nameof(a));
+        }
+
+        bool changed = false;
+
+        for (int i = 0; i < a.Length; i++)
+        {
+            T value = a[i];
+            while (Remove(value))
+            {
+                changed = true;
+            }
+        }
+
+        return changed;
+    }
+
+    // 12) для оставления в очереди только указанных объектов
+    public bool RetainAll(T[] a)
+    {
+        if (a == null)
+        {
+            throw new ArgumentNullException(nameof(a));
+        }
+
+        bool changed = false;
+        int i = 0;
+
+        while (i < size)
+        {
+            int idx = GetInternalIndex(i);
+            T value = elements[idx];
+
+            if (!ArrayContains(a, value))
+            {
+                RemoveAtLogicalIndex(i);
+                changed = true;
+            }
+            else
+            {
+                i++;
+            }
+        }
+        return changed;
+    }
+
+    // 13) для получения размера очереди
+    public int Size()
+    {
+        return size;
+    }
+
+    // 14) для возврата массива объектов со всеми элементами очереди
+    public object[] ToArray()
+    {
+        object[] result = new object[size];
+        for (int i = 0; i < size; i++)
+        {
+            int idx = GetInternalIndex(i);
+            result[i] = elements[idx];
+        }
+
+        return result;
+    }
+
+    // 15) для возврата массива T со всеми элементами очереди
+    public T[] ToArray(T[] a)
+    {
+        if (a == null || a.Length < size)
+        {
+            a = new T[size];
+        }
+
+        for (int i = 0; i < size; i++)
+        {
+            int idx = GetInternalIndex(i);
+            a[i] = elements[idx];
+        }
+        return a;
+    }
+
+    // 16) для получения головы очереди без удаления (как element())
+    public T Element()
+    {
+        if (IsEmpty())
+        {
+            throw new InvalidOperationException("Очередь пуста.");
+        }
+        return elements[head];
+    }
+
+    // 17) для попытки добавления элемента в конец очереди
+    public bool Offer(T obj)
+    {
+        try
+        {
+            AddLast(obj);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // 18) для возврата головы без удаления, или default(T), если очередь пуста
+    public T Peek()
+    {
+        if (IsEmpty())
+        {
+            return default;
+        }
+
+        return elements[head];
+    }
+
+    // 19) для удаления и возврата головы, или default(T), если очередь пуста
+    public T Poll()
+    {
+        if (IsEmpty())
+        {
+            return default;
+        }
+
+        T value = elements[head];
+        elements[head] = default;
+        head = Increment(head);
+        size--;
+
+        return value;
+    }
+
+    // 20) для добавления элемента в голову очереди
+    public void AddFirst(T obj)
+    {
+        EnsureCapacity();
+        head = Decrement(head);
+        elements[head] = obj;
+        size++;
+    }
+
+    // 21) для добавления элемента в хвост очереди
+    public void AddLast(T obj)
+    {
+        EnsureCapacity();
+        elements[tail] = obj;
+        tail = Increment(tail);
+        size++;
+    }
+
+    // 22) для получения первого элемента без удаления
+    public T GetFirst()
+    {
+        if (IsEmpty())
+        {
+            throw new InvalidOperationException("Очередь пуста.");
+        }
+
+        return elements[head];
+    }
+
+    // 23) для получения последнего элемента без удаления
+    public T GetLast()
+    {
+        if (IsEmpty())
+        {
+            throw new InvalidOperationException("Очередь пуста.");
+        }
+
+        int lastIndex = Decrement(tail);
+        return elements[lastIndex];
+    }
+
+    // 24) для попытки добавления элемента в голову очереди
+    public bool OfferFirst(T obj)
+    {
+        try
+        {
+            AddFirst(obj);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // 25) для попытки добавления элемента в хвост очереди
+    public bool OfferLast(T obj)
+    {
+        try
+        {
+            AddLast(obj);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // 26) рор() — судя по описанию, это pop: вернуть голову с удалением
+    public T Pop()
+    {
+        if (IsEmpty())
+        {
+            throw new InvalidOperationException("Очередь пуста.");
+        }
+
+        return RemoveFirst();
+    }
+
+    // 27) для добавления элемента в голову (как push)
+    public void Push(T obj)
+    {
+        AddFirst(obj);
+    }
+
+    // 28) для просмотра головы без удаления или default, если очередь пуста
+    public T PeekFirst()
+    {
+        return Peek();
+    }
+
+    // 29) для просмотра хвоста без удаления или default, если очередь пуста
+    public T PeekLast()
+    {
+        if (IsEmpty())
+        {
+            return default;
+        }
+
+        int lastIndex = Decrement(tail);
+        return elements[lastIndex];
+    }
+
+    // 30) для возврата головы с удалением или default, если очередь пуста
+    public T PollFirst()
+    {
+        return Poll();
+    }
+
+    // 31) для возврата хвоста с удалением или default, если очередь пуста
+    public T PollLast()
+    {
+        if (IsEmpty())
+        {
+            return default;
+        }
+
+        tail = Decrement(tail);
+        T value = elements[tail];
+        elements[tail] = default;
+        size--;
+
+        return value;
+    }
+
+    // 32) для возврата хвоста с удалением (бросает исключение, если пусто)
+    public T RemoveLast()
+    {
+        if (IsEmpty())
+        {
+            throw new InvalidOperationException("Очередь пуста.");
+        }
+
+        return PollLast();
+    }
+
+    // 33) для возврата головы с удалением (бросает исключение, если пусто)
+    public T RemoveFirst()
+    {
+        if (IsEmpty())
+        {
+            throw new InvalidOperationException("Очередь пуста.");
+        }
+
+        T value = elements[head];
+        elements[head] = default;
+        head = Increment(head);
+        size--;
+
+        return value;
+    }
+
+    // 34) для удаления последнего вхождения объекта obj
+    public bool RemoveLastOccurrence(object obj)
+    {
+        if (IsEmpty())
+        {
+            return false;
+        }
+
+        for (int i = size - 1; i >= 0; i--)
+        {
+            int idx = GetInternalIndex(i);
+            if (object.Equals(elements[idx], obj))
+            {
+                RemoveAtLogicalIndex(i);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // 35) для удаления первого вхождения объекта obj
+    public bool RemoveFirstOccurrence(object obj)
+    {
+        return Remove(obj);
+    }
+}
+
+
+class Program
+{
+    static void Main(string[] args)
+    {
+        // создаём двунаправленную очередь для int
+        MyArrayDeque<int> deque = new MyArrayDeque<int>();
+
+        Console.WriteLine("Добавляем элементы в хвост:");
+        deque.AddLast(10);
+        deque.AddLast(20);
+        deque.AddLast(30);
+        PrintDeque(deque);
+
+        Console.WriteLine("\nДобавляем элементы в голову:");
+        deque.AddFirst(5);
+        deque.AddFirst(1);
+        PrintDeque(deque);
+
+        Console.WriteLine("\nПроверяем первый и последний элементы:");
+        Console.WriteLine("GetFirst(): " + deque.GetFirst());
+        Console.WriteLine("GetLast():  " + deque.GetLast());
+
+        Console.WriteLine("\nУдаляем первый элемент (RemoveFirst):");
+        Console.WriteLine("Удалён: " + deque.RemoveFirst());
+        PrintDeque(deque);
+
+        Console.WriteLine("\nУдаляем последний элемент (RemoveLast):");
+        Console.WriteLine("Удалён: " + deque.RemoveLast());
+        PrintDeque(deque);
+
+        Console.WriteLine("\nДобавляем ещё элементы:");
+        deque.Add(100);
+        deque.Add(200);
+        deque.Add(300);
+        PrintDeque(deque);
+
+        Console.WriteLine("\nИспользуем Peek:");
+        Console.WriteLine("Peek(): " + deque.Peek());
+
+        Console.WriteLine("\nИспользуем Poll:");
+        Console.WriteLine("Poll(): " + deque.Poll());
+        PrintDeque(deque);
+
+        Console.WriteLine("\nПроверяем Contains:");
+        Console.WriteLine("Contains(200): " + deque.Contains(200));
+        Console.WriteLine("Contains(555): " + deque.Contains(555));
+
+        Console.WriteLine("\nРазмер очереди:");
+        Console.WriteLine("Size(): " + deque.Size());
+
+        Console.WriteLine("\nПреобразуем в массив:");
+        object[] arr = deque.ToArray();
+        Console.Write("ToArray: ");
+        foreach (object obj in arr)
+        {
+            Console.Write(obj + " ");
+        }
+        Console.WriteLine();
+
+        Console.WriteLine("\nОчищаем очередь:");
+        deque.Clear();
+        PrintDeque(deque);
+
+        Console.WriteLine("\nРабота программы завершена.");
+    }
+
+    // простой вывод содержимого дека (как новичок)
+    static void PrintDeque(MyArrayDeque<int> deque)
+    {
+        Console.Write("Содержимое дека: ");
+        if (deque.IsEmpty())
+        {
+            Console.WriteLine("[пусто]");
+            return;
+        }
+
+        // перебираем все элементы: от head до tail
+        for (int i = 0; i < deque.Size(); i++)
+        {
+            // берём i-й элемент логически
+            // через Poll/Remove мы не будем делать, чтобы не портить данные
+            // поэтому создаём копию массива:
+            // можно сделать через ToArray();
+        }
+
+        // чтобы вывести, здесь проще использовать ToArray(),
+        // потому что логические индексы скрыты внутри
+        object[] items = deque.ToArray();
+        for (int i = 0; i < items.Length; i++)
+        {
+            Console.Write(items[i] + " ");
+        }
+        Console.WriteLine();
+    }
+}
+
